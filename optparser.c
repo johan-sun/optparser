@@ -344,9 +344,45 @@ char const* opt_get_arg(OptionParser parser, char const* key)
     }
     return NULL;
 }
+
 void opt_fprint(FILE* file, OptionParser parser)
 {
+    static char buf[80];
+    struct option* op = (struct option*)parser->_private;
+    fprintf(file, "%s:\n", op->name);
+    foreach_option(o, op)
+    {
+        int n = 0;
+        if ( o->short_name )
+        {
+            n += snprintf(buf + n, sizeof buf - n, "-%c ", o->short_name);
+        }
+        if ( o->short_name && strlen(o->name) > 1 )
+        {
+            n += snprintf(buf + n, sizeof buf - n,"[ --%s ] ", o->name);
+        }
+        if ( !o->short_name && strlen(o->name) > 1 )
+        {
+            n += snprintf(buf + n, sizeof buf - n, "--%s ", o->name);
+        }
 
+        if ( o->value )
+        {
+            n += snprintf(buf + n , sizeof buf - n, "arg ");
+            if ( o->value->has_default )
+            {
+                n += snprintf(buf + n , sizeof buf - n, "(=%s) ", 
+                        o->value->ops->display_default?o->value->ops->display_default(o->value):"obj");
+            }
+        }
+
+        n = fprintf(file, "  %-40s", buf);
+        if ( n > 42 )
+        {
+            fprintf(file, "\n  %40s", " ");
+        }
+        fprintf(file, "%s\n", o->help?o->help:"");
+    }
 }
 void opt_print(OptionParser parser)
 {
