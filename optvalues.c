@@ -331,7 +331,7 @@ struct opt_double_builder_interface g_double_builder = {
     .context = &double_set_context,
     .free = &double_set_context_free,
 };
-#define this_double_value() value_double_cast(g_user_builder._data)
+#define this_double_value() value_double_cast(g_double_builder._data)
 OptDoubleBuilderInterface opt_double(double* pointer)
 {
     struct opt_value_double* val = (struct opt_value_double*)malloc(sizeof(*val));
@@ -383,7 +383,7 @@ struct opt_value_string
 static char const* value_string_parse( OptionValue self, char const* args )
 {
     assert( self->pointer );
-    *(char const **)self->pointer = strdup(args);
+    *(char const **)self->pointer = args;
     return NULL;
 }
 
@@ -391,7 +391,7 @@ static void value_string_store_default( OptionValue self )
 {
     struct opt_value_string* s_self = value_string_cast(self);
     assert( self->pointer );
-    *(char const**)self->pointer = strdup(s_self->default_string);
+    *(char const**)self->pointer = s_self->default_string;
 }
 static void value_string_free(OptionValue self)
 {

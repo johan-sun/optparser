@@ -25,6 +25,7 @@ OptionCmdChain option_more_help(char const* option_name, char const* help, void*
 OptionCmdChain option_help(char const* help);
 void option_parse_into(int argc, char const * const*argv, OptionParser* parser);
 static struct option* g_options = NULL;
+#define foreach_option( var, head ) for(struct option* var = ((struct option*)(head))->next; var != head; var = var->next)
 struct option_cmd_chain g_cmd_chain = {
     .add = option_add,
     .parse_into = option_parse_into,
@@ -52,6 +53,8 @@ OptionCmdChain option_help(char const* help)
 {
     return option_add("help,h", help, NULL);
 }
+
+#define PRE(s) (strlen(s) == 1?"-":"--")
 OptionCmdChain option_add(char const* option_name, char const* help, void* option_value_builder)
 {
     assert(option_name);
@@ -72,11 +75,11 @@ OptionCmdChain option_add(char const* option_name, char const* help, void* optio
         }
         opt->name = opt->buff;
     }
-    for(struct option* p = g_options->next; p != g_options; p = p->next)
+    foreach_option(p, g_options)
     {
         if ( (opt->short_name == p->short_name && opt->short_name != '\0')|| strcmp(opt->name, p->name) == 0 )
         {
-            fprintf(stderr, "redefine option name or short name\n");
+            fprintf(stderr, "%s%s redefine option name or short name\n", PRE(opt->name),opt->name);
             exit(1);
         }
     }
@@ -125,7 +128,18 @@ void check_option_repeat_or_no_def(struct option* o, char const* arg)
         fprintf(stderr, "Waring:option %s repeat\n", o->name);
     }
 }
-#define PRE(s) (strlen(s) == 1?"-":"--")
+void check_option_repeat_or_no_def_short(struct option* o, char arg)
+{
+    if ( o == NULL)
+    {
+        fprintf(stderr, "option -%c not defined\n", arg);
+        exit(1);
+    }
+    if ( o->exist )
+    {
+        fprintf(stderr, "Waring:option -%c repeat\n", arg);
+    }
+}
 
 static int may_be_arg(const char* arg)
 {
@@ -136,7 +150,6 @@ static int may_be_arg(const char* arg)
     return 0;
 }
 
-#define foreach_option( var, head ) for(struct option* var = ((struct option*)(head))->next; var != head; var = var->next)
 static int parse_cmd(int argc, char const * const* argv)
 {
     int i = 1;
@@ -163,7 +176,7 @@ static int parse_cmd(int argc, char const * const* argv)
             for(char const* p = argv[i]+1; p < last; ++p)
             {
                 o = find_option(*p);
-                check_option_repeat_or_no_def(o, argv[i]);
+                check_option_repeat_or_no_def_short(o,*p);
                 o->exist = 1;
                 if ( o->value )
                 {
@@ -250,6 +263,11 @@ static void notify_output(int for_helper)
                 exit(1);
             }
             if ( o->exist && o->value->pointer && o->value->has_default)
+            {
+                o->value->ops->store_default(o->value);
+                continue;
+            }
+            if ( ! o->exist )
             {
                 o->value->ops->store_default(o->value);
                 continue;
