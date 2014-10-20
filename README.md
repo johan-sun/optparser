@@ -42,6 +42,7 @@ int main(int argc, char** argv)
 上述代码初始化了一个用程序名命名的解析器，拥有一个参数sigma，短：参数为s，拥有一个验证器必须大于0(验证器不需要上下文参数)，默认值为10，
 定义了一个help，当解析命令行参数的时候出现--help活则-h理解现实格式化后的解析器，输出格式将仿照boost program options
 函数`more_help`定义为注册一个自定义的可以带参数的帮助现显示命令，以支持显示子命令帮助，用户需要提供一个打印函数，可选的上下文，这里将注册的`sub_cmd`字符串作为上下文,以上几行c代码相当于下面的c++ program options代码。
+
 ```
 #include  <iostream>
 #include  <string>
