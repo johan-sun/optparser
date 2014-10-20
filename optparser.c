@@ -23,7 +23,7 @@ struct option
 OptionCmdChain option_add(char const* option_name, char const* help, void* option_value_builder);
 OptionCmdChain option_more_help(char const* option_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context);
 OptionCmdChain option_help(char const* help);
-void option_parse_into(int argc, char const**argv, OptionParser* parser);
+void option_parse_into(int argc, char const * const*argv, OptionParser* parser);
 static struct option* g_options = NULL;
 struct option_cmd_chain g_cmd_chain = {
     .add = option_add,
@@ -137,7 +137,7 @@ static int may_be_arg(const char* arg)
 }
 
 #define foreach_option( var, head ) for(struct option* var = ((struct option*)(head))->next; var != head; var = var->next)
-static int parse_cmd(int argc, char const** argv)
+static int parse_cmd(int argc, char const * const* argv)
 {
     int i = 1;
     while(i < argc)
@@ -273,9 +273,9 @@ static void notify_output(int for_helper)
         }
     }
 }
-void option_parse_into(int argc, char const* *argv, OptionParser* pparser)
+void option_parse_into(int argc, char const * const* argv, OptionParser* pparser)
 {
-    *pparser = malloc(sizeof(**pparser));
+    *pparser = (struct optparser*)malloc(sizeof(**pparser));
     (*pparser)->_private = g_options;
 
     int i = parse_cmd(argc, argv);
@@ -362,7 +362,7 @@ static void free_option(struct option* o)
 }
 void opt_free(OptionParser parser)
 {
-    struct option * p = parser->_private;
+    struct option * p = (struct option*)parser->_private;
     p = p->next;
     while( p != parser->_private )
     {
@@ -370,6 +370,6 @@ void opt_free(OptionParser parser)
         p = p->next;
         free_option(free_p);
     }
-    free_option(parser->_private);
+    free_option((struct option*)parser->_private);
     free(parser); 
 }

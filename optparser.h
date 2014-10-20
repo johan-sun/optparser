@@ -28,7 +28,7 @@ struct option_value_ops
 typedef struct optparser
 {
     int argc;
-    char const** argv;
+    char const * const* argv;
     void* _private;
 }* OptionParser;
 
@@ -38,7 +38,7 @@ struct option_cmd_chain
     OptionCmdChain (*add)(char const* option_name, char const* help, void* option_value_builder);
     OptionCmdChain (*more_help)(char const* help_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context);
     OptionCmdChain (*help)(char const* help);
-    void (*parse_into)(int argc, char const** argv, OptionParser* pparser);
+    void (*parse_into)(int argc, char const * const* argv, OptionParser* pparser);
 };
 OptionCmdChain opt_init(char const* desc);
 int opt_has(OptionParser parser, char const* key);
