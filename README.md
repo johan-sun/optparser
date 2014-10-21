@@ -14,14 +14,14 @@ optparser 是一个使用纯C实现的仿照argparse和boost program option API�
 char const* gerater_then_zero(int n, void* context)
 {
     if ( n <= 0 )
-        return "must greater then zero";
+        return "must be greater then zero";
     return NULL;
 }
 
 void print_cmd(void* ctx)
 {
     char const* sub_cmd = *(char const**)ctx;
-    printf("%s is sub command\n", sub_cmd);
+    printf("%s is a sub command\n", sub_cmd);
 }
 int main(int argc, char *argv[])
 {
@@ -30,13 +30,13 @@ int main(int argc, char *argv[])
     double speed;
     char const* sub_cmd = NULL;
     opt_init(argv[0])
-        ->add("sigma,s", "special the sigma", opt_int(&sigma)->required()->validator(gerater_then_zero)->default_value(10))
-        ->add("speed", "special the speed", opt_double(&speed)->required()->default_value(.5))
+        ->add("sigma,s", "specify the sigma", opt_int(&sigma)->required()->validator(gerater_then_zero)->default_value(10))
+        ->add("speed", "specify the speed", opt_double(&speed)->required()->default_value(.5))
         ->add("c", "toggle c style", NULL)
         ->add("f", "toggle f style", NULL)
         ->add("x", "toogle x style", NULL)
         ->help("show help")
-        ->more_help("command", "print help of sub command", opt_string(&sub_cmd), print_cmd, &sub_cmd)->
+        ->more_help("command", "print help of sub commands", opt_string(&sub_cmd), print_cmd, &sub_cmd)->
     parse_into(argc, argv, &parser);
 
     printf("sigma=%d\n",sigma);
@@ -84,13 +84,13 @@ option --sigma argument illegal: must greater then zero
 
 % ./a.out 
 ./a.out:
-  -s [ --sigma ] arg (=10)                special the sigma
-  -v [ --speed ] arg (=0.5)               special the speed
+  -s [ --sigma ] arg (=10)                specify the sigma
+  -v [ --speed ] arg (=0.5)               specify the speed
   -c                                      toggle c style
   -f                                      toggle f style
   -x                                      toogle x style
   -h [ --help ]                           show help
-  --command arg                           print help of sub command
+  --command arg                           print help of sub commands
 ```
 上述代码初`add`始化了一个用程序名命名的解析器，拥有一个参数sigma，短参数为s，拥有一个验证器,验证sigma必须大于0，sigma默认值为10
 第二个`add`定义了一个speed选项,没有短选项,默认值为0.5,没有验证器,第三个到第五个`add`只定义了3个短选项,可以通过`opt_has`查找是否包含选项
@@ -112,12 +112,12 @@ int main(int argc, char *argv[])
     string sub_cmd;
     po::options_description desc(argv[0]);
     desc.add_options()
-        ("sigma,s", po::value(&sigma)->required()->default_value(10), "special the sigma")
-        ("help,h", "show help")
+        ("sigma,s", po::value(&sigma)->required()->default_value(10), "specify the sigma")
+        ("help,h", "display help")
         (",c", "toggle c style")
         (",f", "toggle f style")
         (",x", "toggle x style")
-        ("command", po::value(&sub_cmd), "show help of sub command");
+        ("command", po::value(&sub_cmd), "show help of sub commands");
 
     po::variables_map vm;
     try
@@ -145,13 +145,13 @@ int main(int argc, char *argv[])
     }
     if ( vm.count("command") )
     {
-       cout << sub_cmd << " is sub cmd " << endl;
+       cout << sub_cmd << " is a sub cmd " << endl;
       return 0; 
     }
 
     if ( sigma < 0 )
     {
-        cerr << "sigma must greator than zero " << endl;
+        cerr << "sigma must be greater than zero " << endl;
         return 1;
     }
     cout << sigma << endl;
@@ -159,7 +159,7 @@ int main(int argc, char *argv[])
 }
 ```
 
-本库被设计为可以扩展，目前暂时提供了int,double,c 风格字符串，int数组,通过提供适当的`OptionValue`可以支持更多的格式化数据，诸如直接将参数中的字符串格式化填写到`struct sockaddr`, glib的`GList`, 以及其他常用clib的数据结构。所有`OptionValue`将使用类似`opt_int, opt_double, opt_string`的链式构建器来创建
+本库被设计为可以扩展，目前暂时提供了int,double,c 风格字符串，int数组,通过提供适当的`OptionValue`可以支持更多的格式化数据，诸如直接将参数中的字符串格式化填写到`struct sockaddr`, glib的`GList`, 以及其他常用clib的数据结构。所有`OptionValue`将使用类似`opt_int, opt_double, opt_string`的链式构建器来创建.
 
 -本库还在开发中-
 
