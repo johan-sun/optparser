@@ -29,23 +29,36 @@ int main(int argc, char *argv[])
     int sigma;
     double speed;
     char const* sub_cmd = NULL;
-    opt_init(argv[0])
+    int seq[4] = {0,1,2,3};
+    int n = 4;
+    opt_init("Example of optparser")
+    ->group("basic arguments")
         ->add("sigma,s", "specify the sigma", opt_int(&sigma)->required()->validator(gerater_then_zero)->default_value(10))
-        ->add("speed", "specify the speed", opt_double(&speed)->required()->default_value(.5))
+        ->add("speed,v", "specify the speed", opt_double(&speed)->required()->default_value(.5))
+        ->add("sequence", "specify the sequence", opt_ints(seq, &n)->delimiters(",.|:")->default_value(seq, 4))
+    ->group("features")
         ->add("c", "toggle c style", NULL)
         ->add("f", "toggle f style", NULL)
         ->add("x", "toogle x style", NULL)
+    ->group("help command")
         ->help("show help")
-        ->more_help("command", "print help of sub commands", opt_string(&sub_cmd), print_cmd, &sub_cmd)->
-    parse_into(argc, argv, &parser);
+        ->more_help("command", "print help of sub commands", opt_string(&sub_cmd), print_cmd, &sub_cmd)
+    ->text("this show basic use of optparser,\nyou can add groups and pure text to optparser.")
+    ->parse_into(argc, argv, &parser);
 
     printf("sigma=%d\n",sigma);
     printf("speed=%g\n", speed);
-    printf("remain argc=%d\n", parser->argc);
-    printf("remain argv:\n");
     printf("c style ?:%d\n", opt_has(parser, "c"));
     printf("f style ?:%d\n", opt_has(parser, "f"));
     printf("x style ?:%d\n", opt_has(parser, "x"));
+    puts("the input sequene:");
+    for(int i = 0; i < n; ++i)
+    {
+        printf("%d ", seq[i]);
+    }
+    putchar('\n');
+    printf("remain argc=%d\n", parser->argc);
+    printf("remain argv:\n");
     for(int i = 0; i < parser->argc; ++i)
         printf(" %s\n", parser->argv[i]);
 
@@ -55,24 +68,50 @@ int main(int argc, char *argv[])
 ```
 ####输出样例:
 ```bash
-% ./a.out -xf 
-sigma=10
+% ./a.out 
+Example of optparser:
+
+basic arguments:
+  -s [ --sigma ] arg (=10)                specify the sigma
+  -v [ --speed ] arg (=0.5)               specify the speed
+  --sequence arg (=0,1,2,3)               specify the sequence
+
+features:
+  -c                                      toggle c style
+  -f                                      toggle f style
+  -x                                      toogle x style
+
+help command:
+  -h [ --help ]                           show help
+  --command arg                           print help of sub commands
+
+this show basic use of optparser,
+you can add groups and pure text to optparser.
+
+% ./a.out --command sub 
+sub is a sub command
+
+% ./a.out -xf  
+sigma=10                                  
 speed=0.5
-remain argc=0
-remain argv:
 c style ?:0
 f style ?:1
-x style ?:1
+x style ?:1 
+the input sequene:
+0 1 2 3 
+remain argc=0
+remain argv:
 
-
-% ./a.out --speed=50.0 remain arguments 1 2 3
+./a.out --speed=50.0 remain arguments 1 2 3 
 sigma=10
 speed=50
-remain argc=5
-remain argv:
 c style ?:0
 f style ?:0
 x style ?:0
+the input sequene:
+0 1 2 3 
+remain argc=5
+remain argv:
  remain
  arguments
  1
@@ -82,15 +121,20 @@ x style ?:0
 % ./a.out -xf --sigma -50 
 option --sigma argument illegal: must greater then zero
 
-% ./a.out 
-./a.out:
-  -s [ --sigma ] arg (=10)                specify the sigma
-  -v [ --speed ] arg (=0.5)               specify the speed
-  -c                                      toggle c style
-  -f                                      toggle f style
-  -x                                      toogle x style
-  -h [ --help ]                           show help
-  --command arg                           print help of sub commands
+% ./a.out --sequence=4,3,2,1   
+sigma=10
+speed=0.5
+c style ?:0
+f style ?:0
+x style ?:0
+the input sequene:
+4 3 2 1 
+remain argc=0
+remain argv:
+
+% ./a.out --sequence=4,3,2,1,0 
+option --sequence argument illegal: too much int
+
 ```
 上述代码初`add`始化了一个用程序名命名的解析器，拥有一个参数sigma，短参数为s，拥有一个验证器,验证sigma必须大于0，sigma默认值为10
 第二个`add`定义了一个speed选项,没有短选项,默认值为0.5,没有验证器,第三个到第五个`add`只定义了3个短选项,可以通过`opt_has`查找是否包含选项
@@ -98,6 +142,8 @@ option --sigma argument illegal: must greater then zero
 `help`定义了一个help，当解析命令行参数的时候出现--help或者-h,直接输出帮助文档输出格式将仿照boost program options
 
 函数`more_help`定义为注册一个自定义的可以带参数的帮助现显示命令，以支持显示子命令帮助，用户需要提供一个打印函数，可选的上下文，这里将注册的`sub_cmd`字符串作为上下文,以上几行c代码相当于下面的c++ program options代码。
+
+`group` 可以添加用于显示的分组，`text`可以添加独立的文字描述。
 
 ```cpp
 #include  <iostream>

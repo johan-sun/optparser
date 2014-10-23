@@ -36,6 +36,8 @@ typedef struct option_cmd_chain* OptionCmdChain;
 struct option_cmd_chain
 {
     OptionCmdChain (*add)(char const* option_name, char const* help, void* option_value_builder);
+    OptionCmdChain (*text)(char const* txt);
+    OptionCmdChain (*group)(char const* group_name);
     OptionCmdChain (*more_help)(char const* help_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context);
     OptionCmdChain (*help)(char const* help);
     void (*parse_into)(int argc, char const * const* argv, OptionParser* pparser);

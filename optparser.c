@@ -9,6 +9,8 @@ struct option
 {
     char const* name;
     char short_name;
+    char const* txt;
+    char const* group_name;
     int exist;
     char const* possible_arg;
     char const* help;
@@ -20,15 +22,92 @@ struct option
     struct option* prev;
 };
 
+
+void display_help(FILE* file, struct option* o)
+{
+    static char buf[80];
+    if ( o->group_name )
+    {
+        fprintf(file, "\n%s:\n", o->group_name);
+        return ;
+    }
+    if ( o->txt )
+    {
+        fprintf(file, "\n%s\n", o->txt);
+        return ;
+    }
+    int n = 0;
+    if ( o->short_name )
+    {
+        n += snprintf(buf + n, sizeof buf - n, "-%c ", o->short_name);
+    }
+    if ( o->short_name && strlen(o->name) > 1 )
+    {
+        n += snprintf(buf + n, sizeof buf - n,"[ --%s ] ", o->name);
+    }
+    if ( !o->short_name && strlen(o->name) > 1 )
+    {
+        n += snprintf(buf + n, sizeof buf - n, "--%s ", o->name);
+    }
+
+    if ( o->value )
+    {
+        n += snprintf(buf + n , sizeof buf - n, "arg ");
+        if ( o->value->has_default )
+        {
+            n += snprintf(buf + n , sizeof buf - n, "(=%s) ", 
+                    o->value->ops->display_default?o->value->ops->display_default(o->value):"obj");
+        }
+    }
+
+    n = fprintf(file, "  %-40s", buf);
+    if ( n > 42 )
+    {
+        fprintf(file, "\n  %40s", " ");
+    }
+    fprintf(file, "%s\n", o->help?o->help:"");
+}
+
+
 OptionCmdChain option_add(char const* option_name, char const* help, void* option_value_builder);
+OptionCmdChain option_group(char const* group_name);
+OptionCmdChain option_text(char const* txt);
 OptionCmdChain option_more_help(char const* option_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context);
 OptionCmdChain option_help(char const* help);
 void option_parse_into(int argc, char const * const*argv, OptionParser* parser);
 static struct option* g_options = NULL;
+
+static struct option* next_option(struct option* o)
+{
+    do{
+        o = o->next;
+    }while(!o->name);
+    return o;
+}
+
+static struct option* init_group(struct option* head)
+{
+    struct option* p = head;
+    do{
+        p = head->next;
+    }while(!p->group_name && p != head);
+    return p;
+}
+static struct option* next_group(struct option* o, struct option* head)
+{
+    do{
+        o = o->next;
+    }while(!o->group_name && o != head);
+    return o;
+}
 #define foreach_option( var, head ) for(struct option* var = ((struct option*)(head))->next; var != head; var = var->next)
+#define foreach_argument_option( var, head ) for(struct option* var = next_option(((struct option*)(head))); var != head; var = next_option(var))
+#define foreach_group( var, head) for (struct option* var = init_group((struct option*)(head)); var != head; var = next_group(var, (struct option*)head))
 struct option_cmd_chain g_cmd_chain = {
-    .add = option_add,
-    .parse_into = option_parse_into,
+    .add = &option_add,
+    .parse_into = &option_parse_into,
+    .text = &option_text,
+    .group = &option_group,
     .more_help = &option_more_help,
     .help = &option_help,
 };
@@ -49,9 +128,36 @@ OptionCmdChain option_more_help(char const* option_name, char const* help, void*
     o->context = context;
     return &g_cmd_chain;
 }
+static void insert_option(struct option* opt)
+{
+    opt->prev = g_options->prev;
+    opt->next = g_options;
+    g_options->prev->next = opt;
+    g_options->prev = opt;
+}
 OptionCmdChain option_help(char const* help)
 {
     return option_add("help,h", help, NULL);
+}
+
+OptionCmdChain option_text(char const* txt)
+{
+    assert(txt);
+    struct option * opt = (struct option*)malloc(sizeof *opt);
+    bzero(opt, sizeof *opt);
+    opt->txt = txt;
+    insert_option(opt);
+    return &g_cmd_chain;
+}
+
+OptionCmdChain option_group(char const* group_name)
+{
+    assert(group_name);
+    struct option * opt = (struct option*)malloc(sizeof *opt);
+    bzero(opt, sizeof *opt);
+    opt->group_name = group_name;
+    insert_option(opt);
+    return &g_cmd_chain;
 }
 
 #define PRE(s) (strlen(s) == 1?"-":"--")
@@ -75,7 +181,7 @@ OptionCmdChain option_add(char const* option_name, char const* help, void* optio
         }
         opt->name = opt->buff;
     }
-    foreach_option(p, g_options)
+    foreach_argument_option(p, g_options)
     {
         if ( (opt->short_name == p->short_name && opt->short_name != '\0')|| strcmp(opt->name, p->name) == 0 )
         {
@@ -89,17 +195,14 @@ OptionCmdChain option_add(char const* option_name, char const* help, void* optio
         OptionValue ov = *(OptionValue*)(option_value_builder);
         opt->value = ov;
     }
-    opt->prev = g_options->prev;
-    opt->next = g_options;
-    g_options->prev->next = opt;
-    g_options->prev = opt;
+    insert_option(opt);
     return &g_cmd_chain;
 }
 
 
 static struct option* find_option(char sh)
 {
-    for(struct option* p = g_options->next; p != g_options; p = p->next)
+    foreach_argument_option(p, g_options)
     {
         if ( sh == p->short_name )
             return p;
@@ -108,7 +211,7 @@ static struct option* find_option(char sh)
 }
 static struct option* find_option_long(char const* name)
 {
-    for(struct option* p = g_options->next; p != g_options; p = p->next)
+    foreach_argument_option(p , g_options)
     {
         if ( strcmp(name, p->name)  == 0)
             return p;
@@ -227,7 +330,7 @@ static int parse_cmd(int argc, char const * const* argv)
 }
 static void notify_output(int for_helper)
 {
-    foreach_option(o, g_options)
+    foreach_argument_option(o, g_options)
     {
         if ( for_helper && !o->help_printer)  continue;
         if ( !for_helper && o->help_printer ) continue;
@@ -304,7 +407,7 @@ void option_parse_into(int argc, char const * const* argv, OptionParser* pparser
         exit(0);
     }
 
-    foreach_option(o , g_options)
+    foreach_argument_option(o , g_options)
     {
         if ( strcmp("help", o->name) == 0 && o->exist)
         {
@@ -315,7 +418,7 @@ void option_parse_into(int argc, char const * const* argv, OptionParser* pparser
 
     const int for_helper = 1;
     notify_output(for_helper);
-    foreach_option(o , g_options)
+    foreach_argument_option(o , g_options)
     {
         if( o->exist && o->help_printer )
         {
@@ -333,7 +436,7 @@ void option_parse_into(int argc, char const * const* argv, OptionParser* pparser
 
 int opt_has(OptionParser parser, char const* key)
 {
-    foreach_option(o, parser->_private)
+    foreach_argument_option(o, parser->_private)
     {
         if ( strcmp(key, o->name) == 0  )
         {
@@ -346,9 +449,9 @@ int opt_has(OptionParser parser, char const* key)
 }
 char const* opt_get_arg(OptionParser parser, char const* key)
 {
-    foreach_option(o, parser->_private)
+    foreach_argument_option(o, parser->_private)
     {
-        if ( strcmp(key, o->name)  == 0 )
+        if ( o->name && strcmp(key, o->name)  == 0 )
         {
             if ( o->exist )
             {
@@ -365,41 +468,11 @@ char const* opt_get_arg(OptionParser parser, char const* key)
 
 void opt_fprint(FILE* file, OptionParser parser)
 {
-    static char buf[80];
     struct option* op = (struct option*)parser->_private;
     fprintf(file, "%s:\n", op->name);
     foreach_option(o, op)
     {
-        int n = 0;
-        if ( o->short_name )
-        {
-            n += snprintf(buf + n, sizeof buf - n, "-%c ", o->short_name);
-        }
-        if ( o->short_name && strlen(o->name) > 1 )
-        {
-            n += snprintf(buf + n, sizeof buf - n,"[ --%s ] ", o->name);
-        }
-        if ( !o->short_name && strlen(o->name) > 1 )
-        {
-            n += snprintf(buf + n, sizeof buf - n, "--%s ", o->name);
-        }
-
-        if ( o->value )
-        {
-            n += snprintf(buf + n , sizeof buf - n, "arg ");
-            if ( o->value->has_default )
-            {
-                n += snprintf(buf + n , sizeof buf - n, "(=%s) ", 
-                        o->value->ops->display_default?o->value->ops->display_default(o->value):"obj");
-            }
-        }
-
-        n = fprintf(file, "  %-40s", buf);
-        if ( n > 42 )
-        {
-            fprintf(file, "\n  %40s", " ");
-        }
-        fprintf(file, "%s\n", o->help?o->help:"");
+        display_help(file, o);
     }
 }
 void opt_print(OptionParser parser)
@@ -416,7 +489,12 @@ static void free_option(struct option* o)
 }
 void opt_free(OptionParser parser)
 {
-    struct option * p = (struct option*)parser->_private;
+    //struct option * p = (struct option*)parser->_private;
+    foreach_option(o, parser->_private)
+    {
+        free_option(o->prev);
+    }
+    /*
     p = p->next;
     while( p != parser->_private )
     {
@@ -424,6 +502,6 @@ void opt_free(OptionParser parser)
         p = p->next;
         free_option(free_p);
     }
-    free_option((struct option*)parser->_private);
+    free_option((struct option*)parser->_private);*/
     free(parser); 
 }

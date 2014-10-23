@@ -472,7 +472,7 @@ char const* value_ints_validate(OptionValue self, char const* arg)
         int a = strtol(p, &endptr, is_self->base);
         if (*endptr != '\0')
         {
-            snprintf(err_buf, sizeof err_buf, "index of %d is not a int", i);
+            snprintf(err_buf, sizeof err_buf, "[%d]:%s is not a int", i, p);
             err_msg = err_buf;
             break;
         }
@@ -524,7 +524,9 @@ static char const* value_ints_display_default(OptionValue self)
     int writed = 0;
     for(int i = 0; i < n; ++i)
     {
-        writed += snprintf(str + writed, total - writed, "%d%c", arr[i], dlm);
+        writed += snprintf(str + writed, total - writed, "%d", arr[i]);
+        if (i != n-1)
+            writed += snprintf(str + writed, total - writed, "%c", dlm);
     }
     return str;
 }
@@ -608,4 +610,7 @@ static OptIntsBuilderInterface ints_set_context_free(void(*on_free)(void*))
     this_ints_value()->context_free = on_free;
     return &g_ints_builder;
 }
+// }}}
+// option value doubles{{{
+
 // }}}
