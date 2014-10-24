@@ -35,6 +35,7 @@ int main(int argc, char *argv[])
     ->group("basic arguments")
         ->add("sigma,s", "specify the sigma", opt_int(&sigma)->required()->validator(gerater_then_zero)->default_value(10))
         ->add("speed,v", "specify the speed", opt_double(&speed)->required()->default_value(.5))
+        ->add("beta,b", "specify the beta", opt_int(NULL)->required()->default_value(0))
         ->add("sequence", "specify the sequence", opt_ints(seq, &n)->delimiters(",.|:")->default_value(seq, 4))
     ->group("features")
         ->add("c", "toggle c style", NULL)
@@ -51,6 +52,8 @@ int main(int argc, char *argv[])
     printf("c style ?:%d\n", opt_has(parser, "c"));
     printf("f style ?:%d\n", opt_has(parser, "f"));
     printf("x style ?:%d\n", opt_has(parser, "x"));
+    printf("arg of beta is:%s\n", opt_get_arg(parser, "beta"));
+    printf("beta did not associate with a variable, so you need to parse it by youself\n");
     puts("the input sequene:");
     for(int i = 0; i < n; ++i)
     {
@@ -64,16 +67,16 @@ int main(int argc, char *argv[])
 
     opt_free(parser);
     return 0;
-}
-```
+}```
 ####输出样例:
 ```bash
-% ./a.out 
+% ./a.out  
 Example of optparser:
 
 basic arguments:
   -s [ --sigma ] arg (=10)                specify the sigma
   -v [ --speed ] arg (=0.5)               specify the speed
+  -b [ --beta ] arg (=0)                  specify the beta
   --sequence arg (=0,1,2,3)               specify the sequence
 
 features:
@@ -87,27 +90,37 @@ help command:
 
 this show basic use of optparser,
 you can add groups and pure text to optparser.
+```
 
+```
 % ./a.out --command sub 
 sub is a sub command
+```
 
-% ./a.out -xf  
-sigma=10                                  
+```
+% ./a.out -xf 
+sigma=10
 speed=0.5
 c style ?:0
 f style ?:1
-x style ?:1 
+x style ?:1
+arg of beta is:0
+beta did not associate with a variable, so you need to parse it by youself
 the input sequene:
 0 1 2 3 
 remain argc=0
 remain argv:
+```
 
-./a.out --speed=50.0 remain arguments 1 2 3 
+```
+% ./a.out --speed=50.0 remain arguments 1 2 3 
 sigma=10
 speed=50
 c style ?:0
 f style ?:0
 x style ?:0
+arg of beta is:0
+beta did not associate with a variable, so you need to parse it by youself
 the input sequene:
 0 1 2 3 
 remain argc=5
@@ -117,24 +130,31 @@ remain argv:
  1
  2
  3
-
+```
+ 
+```
 % ./a.out -xf --sigma -50 
 option --sigma argument illegal: must greater then zero
+```
 
-% ./a.out --sequence=4,3,2,1   
+```
+% ./a.out --sequence=4,3,2,1 
 sigma=10
 speed=0.5
 c style ?:0
 f style ?:0
 x style ?:0
+arg of beta is:0
+beta did not associate with a variable, so you need to parse it by youself
 the input sequene:
 4 3 2 1 
 remain argc=0
 remain argv:
+```
 
+```
 % ./a.out --sequence=4,3,2,1,0 
 option --sequence argument illegal: too much int
-
 ```
 上述代码初`add`始化了一个用程序名命名的解析器，拥有一个参数sigma，短参数为s，拥有一个验证器,验证sigma必须大于0，sigma默认值为10
 第二个`add`定义了一个speed选项,没有短选项,默认值为0.5,没有验证器,第三个到第五个`add`只定义了3个短选项,可以通过`opt_has`查找是否包含选项

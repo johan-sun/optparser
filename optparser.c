@@ -69,10 +69,10 @@ void display_help(FILE* file, struct option* o)
 }
 
 
-OptionCmdChain option_add(char const* option_name, char const* help, void* option_value_builder);
+OptionCmdChain option_add(char const* option_name, char const* help, void* pvalue);
 OptionCmdChain option_group(char const* group_name);
 OptionCmdChain option_text(char const* txt);
-OptionCmdChain option_more_help(char const* option_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context);
+OptionCmdChain option_more_help(char const* option_name, char const* help, void* pvalue, void(*printer)(void*), void* context);
 OptionCmdChain option_help(char const* help);
 void option_parse_into(int argc, char const * const*argv, OptionParser* parser);
 static struct option* g_options = NULL;
@@ -85,24 +85,8 @@ static struct option* next_option(struct option* o)
     return o;
 }
 
-static struct option* init_group(struct option* head)
-{
-    struct option* p = head;
-    do{
-        p = head->next;
-    }while(!p->group_name && p != head);
-    return p;
-}
-static struct option* next_group(struct option* o, struct option* head)
-{
-    do{
-        o = o->next;
-    }while(!o->group_name && o != head);
-    return o;
-}
 #define foreach_option( var, head ) for(struct option* var = ((struct option*)(head))->next; var != head; var = var->next)
 #define foreach_argument_option( var, head ) for(struct option* var = next_option(((struct option*)(head))); var != head; var = next_option(var))
-#define foreach_group( var, head) for (struct option* var = init_group((struct option*)(head)); var != head; var = next_group(var, (struct option*)head))
 struct option_cmd_chain g_cmd_chain = {
     .add = &option_add,
     .parse_into = &option_parse_into,
@@ -120,9 +104,9 @@ OptionCmdChain opt_init(char const* desc)
     return &g_cmd_chain;
 }
 
-OptionCmdChain option_more_help(char const* option_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context)
+OptionCmdChain option_more_help(char const* option_name, char const* help, void* pvalue, void(*printer)(void*), void* context)
 {
-    option_add(option_name, help, option_value_builder);
+    option_add(option_name, help, pvalue);
     struct option* o = g_options->prev;
     o->help_printer = printer;
     o->context = context;
@@ -161,7 +145,7 @@ OptionCmdChain option_group(char const* group_name)
 }
 
 #define PRE(s) (strlen(s) == 1?"-":"--")
-OptionCmdChain option_add(char const* option_name, char const* help, void* option_value_builder)
+OptionCmdChain option_add(char const* option_name, char const* help, void* pvalue)
 {
     assert(option_name);
     struct option * opt = (struct option*)malloc(sizeof *opt);
@@ -190,9 +174,10 @@ OptionCmdChain option_add(char const* option_name, char const* help, void* optio
         }
     }
     opt->help = help;
-    if ( option_value_builder )
+    if ( pvalue)
     {
-        OptionValue ov = *(OptionValue*)(option_value_builder);
+        OptionValue ov = *(OptionValue*)(pvalue);
+        *(OptionValue*)pvalue = NULL;
         opt->value = ov;
     }
     insert_option(opt);
@@ -372,7 +357,7 @@ static void notify_output(int for_helper)
             }
             if ( ! o->exist )
             {
-                o->value->ops->store_default(o->value);
+                if ( o->value->pointer ) o->value->ops->store_default(o->value);
                 continue;
             }
             if (o->exist && !o->value->has_default)
@@ -453,7 +438,7 @@ char const* opt_get_arg(OptionParser parser, char const* key)
     {
         if ( o->name && strcmp(key, o->name)  == 0 )
         {
-            if ( o->exist )
+            if ( o->exist  || ( o->value && o->value->required ))
             {
                 if (o->possible_arg)
                     return o->possible_arg;
@@ -489,12 +474,7 @@ static void free_option(struct option* o)
 }
 void opt_free(OptionParser parser)
 {
-    //struct option * p = (struct option*)parser->_private;
-    foreach_option(o, parser->_private)
-    {
-        free_option(o->prev);
-    }
-    /*
+    struct option * p = (struct option*)parser->_private;
     p = p->next;
     while( p != parser->_private )
     {
@@ -502,6 +482,6 @@ void opt_free(OptionParser parser)
         p = p->next;
         free_option(free_p);
     }
-    free_option((struct option*)parser->_private);*/
+    free_option((struct option*)parser->_private);
     free(parser); 
 }

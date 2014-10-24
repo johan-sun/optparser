@@ -25,6 +25,7 @@ int main(int argc, char *argv[])
     ->group("basic arguments")
         ->add("sigma,s", "specify the sigma", opt_int(&sigma)->required()->validator(gerater_then_zero)->default_value(10))
         ->add("speed,v", "specify the speed", opt_double(&speed)->required()->default_value(.5))
+        ->add("beta,b", "specify the beta", opt_int(NULL)->required()->default_value(0))
         ->add("sequence", "specify the sequence", opt_ints(seq, &n)->delimiters(",.|:")->default_value(seq, 4))
     ->group("features")
         ->add("c", "toggle c style", NULL)
@@ -41,6 +42,8 @@ int main(int argc, char *argv[])
     printf("c style ?:%d\n", opt_has(parser, "c"));
     printf("f style ?:%d\n", opt_has(parser, "f"));
     printf("x style ?:%d\n", opt_has(parser, "x"));
+    printf("arg of beta is:%s\n", opt_get_arg(parser, "beta"));
+    printf("beta did not associate with a variable, so you need to parse it by youself\n");
     puts("the input sequene:");
     for(int i = 0; i < n; ++i)
     {

@@ -35,10 +35,15 @@ typedef struct optparser
 typedef struct option_cmd_chain* OptionCmdChain;
 struct option_cmd_chain
 {
-    OptionCmdChain (*add)(char const* option_name, char const* help, void* option_value_builder);
+    //actually function is (char const* option_name, char const* help, OptionValue* pvalue)
+    //after add , *pvalue will be set to NULL, mean the value has move into optparser
+    //the optparser will manage is life time, use void* is to support the optvalue builder
+    //the builder's first member is OptionValue, so the address of builder will equal to
+    //the address of OptionValue member, it is OptionValue*
+    OptionCmdChain (*add)(char const* option_name, char const* help, void* pvalue);
     OptionCmdChain (*text)(char const* txt);
     OptionCmdChain (*group)(char const* group_name);
-    OptionCmdChain (*more_help)(char const* help_name, char const* help, void* option_value_builder, void(*printer)(void*), void* context);
+    OptionCmdChain (*more_help)(char const* help_name, char const* help, void* pvalue, void(*printer)(void*), void* context);
     OptionCmdChain (*help)(char const* help);
     void (*parse_into)(int argc, char const * const* argv, OptionParser* pparser);
 };
