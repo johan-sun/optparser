@@ -114,10 +114,36 @@ struct opt_ints_builder_interface
     OptIntsBuilderInterface (*validator)(char const* (*)(int const*, int, void*));
     OptIntsBuilderInterface (*context)(void*);
     OptIntsBuilderInterface (*free)(void(*)(void*));
+    OptIntsBuilderInterface (*base)(int n);
 };
 OptIntsBuilderInterface opt_ints(int* pointer, int* n);
 //=====================================================
+typedef struct opt_doubles_builder_interface* OptDoublesBuilderInterface;
+struct opt_doubles_builder_interface
+{
+    OptionValue _data;
+    OptDoublesBuilderInterface (*required)();
+    OptDoublesBuilderInterface (*default_value)(double const*, int);
+    OptDoublesBuilderInterface (*delimiters)(char const*);
+    OptDoublesBuilderInterface (*validator)(char const* (*)(double const*, int, void*));
+    OptDoublesBuilderInterface (*context)(void*);
+    OptDoublesBuilderInterface (*free)(void(*)(void*));
+};
+OptDoublesBuilderInterface opt_doubles(double* pointer, int* n);
+//=====================================================
+typedef struct opt_strings_builder_interface* OptStringsBuilderInterface;
+struct opt_strings_builder_interface
+{
+    OptionValue _data;
+    OptStringsBuilderInterface (*required)();
+    OptStringsBuilderInterface (*default_value)(char const*, ...);
+    OptStringsBuilderInterface (*delimiters)(char const*);
+};
+
+OptStringsBuilderInterface opt_strings(char const* pointer[], int* n);
+
 // }}}
+
 #ifdef __cplusplus
 }
 #endif

@@ -2,6 +2,7 @@
 #include  <stdlib.h>
 #include  <string.h>
 #include  <assert.h>
+#include  <stdarg.h>
 #define container(pointer, ptype, field) ((ptype)((char*)(pointer) -  (char*)&((ptype)0)->field))
 #define cast(type, self) container(self, type, _base)
 
@@ -552,6 +553,7 @@ static OptIntsBuilderInterface ints_set_delimiters(char const*);
 static OptIntsBuilderInterface ints_set_validator(char const* (*)(int const*, int , void*));
 static OptIntsBuilderInterface ints_set_context(void*);
 static OptIntsBuilderInterface ints_set_context_free(void(*)(void*));
+static OptIntsBuilderInterface ints_set_base(int n);
 struct opt_ints_builder_interface g_ints_builder = {
     ._data = NULL,
     .required = &ints_set_required,
@@ -560,13 +562,16 @@ struct opt_ints_builder_interface g_ints_builder = {
     .validator = &ints_set_validator,
     .context = &ints_set_context,
     .free = &ints_set_context_free,
+    .base = &ints_set_base,
 };
 #define this_ints_value() cast(struct opt_value_ints*, g_ints_builder._data)
 OptIntsBuilderInterface opt_ints(int * pointer, int* n)
 {
     struct opt_value_ints * ints = (struct opt_value_ints*)malloc(sizeof *ints); 
+    bzero(ints, sizeof *ints);
     ints->_base.pointer = pointer;
-    if ( n ) ints->max_output_n = *n;
+    assert(n);
+    ints->max_output_n = *n;
     ints->output_n = n;
     ints->dlms = ",";
     ints->_base.ops = &g_value_ints_ops;
@@ -610,7 +615,328 @@ static OptIntsBuilderInterface ints_set_context_free(void(*on_free)(void*))
     this_ints_value()->context_free = on_free;
     return &g_ints_builder;
 }
+
+static OptIntsBuilderInterface ints_set_base(int n)
+{
+    this_ints_value()->base = n;
+    return &g_ints_builder;
+}
 // }}}
 // option value doubles{{{
+struct opt_value_doubles
+{
+    struct option_value _base;
+    int max_output_n;
+    int* output_n;
+    double const* default_doubles;
+    int default_n;
+    char const* dlms;
+    char const* (*validator)(double const*, int, void*);
+    void* context;
+    void (*context_free)(void*);
+};
+#define value_doubles_cast(self) cast(struct opt_value_doubles*, self)
+char const* value_doubles_validate(OptionValue self, char const* arg)
+{
+    struct opt_value_doubles* is_self = value_doubles_cast(self);
+    double * arr = (double*)malloc(sizeof(double)*is_self->max_output_n);
+    char* buf = strdup(arg);
+    static char err_buf[100];
+    int i;
+    char* p;
+    char const* err_msg = NULL;
+    for(p = strtok(buf, is_self->dlms),i = 0; p; p = strtok(NULL, is_self->dlms), ++i)
+    {
+        if ( i ==  is_self->max_output_n)
+        {
+            err_msg = "too much double";
+            break;
+        }
+        char * endptr;
+        double a = strtod(p, &endptr);//strtol(p, &endptr, is_self->base);
+        if (*endptr != '\0')
+        {
+            snprintf(err_buf, sizeof err_buf, "[%d]:%s is not a double", i, p);
+            err_msg = err_buf;
+            break;
+        }
+        arr[i] = a;
+    }
+    if ( ! err_msg && is_self->validator)
+    {
+        err_msg = is_self->validator(arr, i, is_self->context);
+    }
+    free(buf);
+    free(arr);
+    return err_msg;
+}
+char const* value_doubles_parse(OptionValue self, char const* arg)
+{
+    struct opt_value_doubles* is_self = value_doubles_cast(self);
+    char * buf = strdup(arg);
+    int i ;
+    char* p;
+    for(p = strtok(buf, is_self->dlms),i = 0; p ; p = strtok(NULL, is_self->dlms), ++i)
+    {
+        double a = strtod(p, NULL);//strtol(p, NULL, is_self->base);
+        ((double*)self->pointer)[i] = a;
+    }
+    *is_self->output_n = i;
+    free(buf);
+    return NULL;
+}
+static void value_doubles_store_default(OptionValue self)
+{
+    struct opt_value_doubles* is_self = value_doubles_cast(self);
+    int n;
+    if ( is_self->output_n == NULL ) n = is_self->default_n;
+    else n = is_self->max_output_n < is_self->default_n ?is_self->max_output_n:is_self->default_n;
+    memcpy(self->pointer, is_self->default_doubles, n * sizeof(double));
+    if ( is_self->output_n ) *is_self->output_n = n;
+}
+static char const* value_doubles_display_default(OptionValue self)
+{
+    static char str[200];
+    struct opt_value_doubles* is_self = value_doubles_cast(self);
+    char dlm = *is_self->dlms;
+    int n = is_self->default_n;
+    double const* arr = is_self->default_doubles;
+    int total = sizeof str;
+    int writed = 0;
+    for(int i = 0; i < n; ++i)
+    {
+        writed += snprintf(str + writed, total - writed, "%g", arr[i]);
+        if (i != n-1)
+            writed += snprintf(str + writed, total - writed, "%c", dlm);
+    }
+    return str;
+}
+static void value_doubles_free(OptionValue self)
+{
+    struct opt_value_doubles* is_self = value_doubles_cast(self);
+    if ( is_self->context && is_self->context_free )
+        is_self->context_free(is_self->context);
+    free(is_self);
+}
 
+struct option_value_ops g_value_doubles_ops = {
+    .validate = & value_doubles_validate,
+    .parse = & value_doubles_parse,
+    .store_default = & value_doubles_store_default,
+    .display_default = & value_doubles_display_default,
+    .free = & value_doubles_free
+};
+
+static OptDoublesBuilderInterface doubles_set_required();
+static OptDoublesBuilderInterface doubles_set_default_value(double const*, int);
+static OptDoublesBuilderInterface doubles_set_delimiters(char const*);
+static OptDoublesBuilderInterface doubles_set_validator(char const* (*)(double const*, int , void*));
+static OptDoublesBuilderInterface doubles_set_context(void*);
+static OptDoublesBuilderInterface doubles_set_context_free(void(*)(void*));
+struct opt_doubles_builder_interface g_doubles_builder = {
+    ._data = NULL,
+    .required = &doubles_set_required,
+    .default_value = &doubles_set_default_value,
+    .delimiters = &doubles_set_delimiters,
+    .validator = &doubles_set_validator,
+    .context = &doubles_set_context,
+    .free = &doubles_set_context_free,
+};
+#define this_doubles_value() cast(struct opt_value_doubles*, g_doubles_builder._data)
+
+OptDoublesBuilderInterface opt_doubles(double * pointer, int* n)
+{
+    struct opt_value_doubles * doubles = (struct opt_value_doubles*)malloc(sizeof *doubles); 
+    bzero(doubles, sizeof *doubles);
+    doubles->_base.pointer = pointer;
+    assert(n);
+    doubles->max_output_n = *n;
+    doubles->output_n = n;
+    doubles->dlms = ",";
+    doubles->_base.ops = &g_value_doubles_ops;
+    g_doubles_builder._data = &doubles->_base;
+    return &g_doubles_builder;
+}
+static OptDoublesBuilderInterface doubles_set_required()
+{
+    this_doubles_value()->_base.required = 1;
+    return &g_doubles_builder;
+}
+
+static OptDoublesBuilderInterface doubles_set_default_value(double const* arr, int n)
+{
+    this_doubles_value()->default_n = n;
+    this_doubles_value()->default_doubles = arr;
+    this_doubles_value()->_base.has_default = 1;
+    return &g_doubles_builder;
+}
+
+static OptDoublesBuilderInterface doubles_set_delimiters(char const* dlms)
+{
+    this_doubles_value()->dlms = dlms;
+    return &g_doubles_builder;
+}
+
+static OptDoublesBuilderInterface doubles_set_validator(char const* (validator)(double const*, int, void*))
+{
+    this_doubles_value()->validator = validator;
+    return &g_doubles_builder;
+}
+
+static OptDoublesBuilderInterface doubles_set_context(void* context)
+{
+    this_doubles_value()->context = context;
+    return &g_doubles_builder;
+}
+
+static OptDoublesBuilderInterface doubles_set_context_free(void(*on_free)(void*))
+{
+    this_doubles_value()->context_free = on_free;
+    return &g_doubles_builder;
+}
 // }}}
+// option strings {{{
+struct opt_value_strings
+{
+    struct option_value _base;
+    int max_output_n;
+    int* output_n;
+    char const** default_strings;
+    int default_n;
+    char const* dlms;
+    char* buf;
+};
+#define value_strings_cast(self) cast(struct opt_value_strings*, self)
+char const* value_strings_validate(OptionValue self, char const* arg)
+{
+    char* buf = strdup(arg);
+    struct opt_value_strings* ss_self = value_strings_cast(self);
+    int n = ss_self->max_output_n;
+    int i = 0;
+    for(char* p = strtok(buf, ss_self->dlms); p ; p =strtok(NULL, ss_self->dlms))
+    {
+       ++i; 
+    }
+    char const* err_msg = NULL;
+    if (i > n)
+    {
+        err_msg = "too much strings";
+    }
+    free(buf);
+    return err_msg;
+}
+char const* value_strings_parse(OptionValue self, char const* arg)
+{
+    struct opt_value_strings* ss_self = value_strings_cast(self);
+    if (ss_self->buf) free(ss_self->buf);
+    if ( self->pointer )
+    {
+        ss_self->buf = strdup(arg);
+        char const** output = (char const**)self->pointer;
+        int i = 0;
+        for(char* p = strtok(ss_self->buf, ss_self->dlms); p; p = strtok(NULL, ss_self->dlms))
+        {
+            output[i++] = p;
+        }
+        *(ss_self->output_n) = i;
+    }
+    return NULL;
+}
+static void value_strings_store_default(OptionValue self)
+{
+    struct opt_value_strings* ss_self = value_strings_cast(self);
+    int n = ss_self->max_output_n < ss_self->default_n ?ss_self->max_output_n:ss_self->default_n;
+    memcpy(self->pointer, ss_self->default_strings, n * sizeof(char const*));
+    *(ss_self->output_n) = n;
+}
+static char const* value_strings_display_default(OptionValue self)
+{
+    static char str[200];
+    struct opt_value_strings* ss_self = value_strings_cast(self);
+    char dlm = *ss_self->dlms;
+    int n = ss_self->default_n;
+    char const** arr = ss_self->default_strings;
+    int total = sizeof str;
+    int writed = 0;
+    for(int i = 0; i < n; ++i)
+    {
+        writed += snprintf(str + writed, total - writed, "%s", arr[i]);
+        if (i != n-1)
+            writed += snprintf(str + writed, total - writed, "%c", dlm);
+    }
+    return str;
+}
+static void value_strings_free(OptionValue self)
+{
+    struct opt_value_strings* ss_self = value_strings_cast(self);
+    if ( ss_self->buf ) free(ss_self->buf);
+    if ( ss_self->default_strings ) free((ss_self->default_strings));
+}
+
+struct option_value_ops g_value_strings_ops = {
+    .validate = & value_strings_validate,
+    .parse = & value_strings_parse,
+    .store_default = & value_strings_store_default,
+    .display_default = & value_strings_display_default,
+    .free = & value_strings_free
+};
+
+static OptStringsBuilderInterface strings_set_required();
+static OptStringsBuilderInterface strings_set_default_value(char const* arg, ...);
+static OptStringsBuilderInterface strings_set_delimiters(char const*);
+struct opt_strings_builder_interface g_strings_builder = {
+    ._data = NULL,
+    .required = &strings_set_required,
+    .default_value = &strings_set_default_value,
+    .delimiters = &strings_set_delimiters,
+};
+#define this_strings_value() cast(struct opt_value_strings*, g_strings_builder._data)
+
+OptStringsBuilderInterface opt_strings(char const** pointer, int* n)
+{
+    assert(n);
+    struct opt_value_strings * strings= (struct opt_value_strings*)malloc(sizeof *strings);
+    bzero(strings, sizeof *strings);
+    strings->_base.pointer = pointer;
+    strings->max_output_n = *n;
+    strings->output_n = n;
+    strings->dlms = ",";
+    strings->_base.ops = &g_value_strings_ops;
+    g_strings_builder._data = &strings->_base;
+    return &g_strings_builder;
+}
+static OptStringsBuilderInterface strings_set_required()
+{
+    this_strings_value()->_base.required = 1;
+    return &g_strings_builder;
+}
+
+static OptStringsBuilderInterface strings_set_default_value(char const* arg, ...)
+{
+    assert(arg);
+    int n = 1;
+    va_list parg;
+    char const* str;
+    for(va_start(parg, arg), str = va_arg(parg, char const*); str; str = va_arg(parg, char const*))
+    {
+        ++n;
+    }
+    this_strings_value()->default_n = n;
+    this_strings_value()->default_strings = (char const**)malloc(n * sizeof(char const*));
+    this_strings_value()->_base.has_default = 1;
+    va_start(parg, arg);
+    str = arg;
+    int i = 0;
+    for(str = arg, va_start(parg, arg); str; str = va_arg(parg, char const*), ++i)
+    {
+        this_strings_value()->default_strings[i] = str;
+    }
+    return &g_strings_builder;
+}
+
+static OptStringsBuilderInterface strings_set_delimiters(char const* dlms)
+{
+    this_strings_value()->dlms = dlms;
+    return &g_strings_builder;
+}
+//}}}

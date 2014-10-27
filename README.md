@@ -67,7 +67,8 @@ int main(int argc, char *argv[])
 
     opt_free(parser);
     return 0;
-}```
+}
+```
 ####输出样例:
 ```bash
 % ./a.out  

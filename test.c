@@ -20,13 +20,19 @@ int main(int argc, char *argv[])
     double speed;
     char const* sub_cmd = NULL;
     int seq[4] = {0,1,2,3};
+    double dseq[10] = {1,2,3,4,5,6,7,8,9,10};
+    int dn = 10;
     int n = 4;
+    char const* strs[20];
+    int sn = 20;
     opt_init("Example of optparser")
     ->group("basic arguments")
         ->add("sigma,s", "specify the sigma", opt_int(&sigma)->required()->validator(gerater_then_zero)->default_value(10))
         ->add("speed,v", "specify the speed", opt_double(&speed)->required()->default_value(.5))
         ->add("beta,b", "specify the beta", opt_int(NULL)->required()->default_value(0))
         ->add("sequence", "specify the sequence", opt_ints(seq, &n)->delimiters(",.|:")->default_value(seq, 4))
+        ->add("dseq", "specify the double sequence", opt_doubles(dseq, &dn)->required()->default_value(dseq, dn))
+        ->add("strings", "specify the strings", opt_strings(strs, &sn)->required()->default_value("hello", "world", NULL))
     ->group("features")
         ->add("c", "toggle c style", NULL)
         ->add("f", "toggle f style", NULL)
@@ -48,6 +54,18 @@ int main(int argc, char *argv[])
     for(int i = 0; i < n; ++i)
     {
         printf("%d ", seq[i]);
+    }
+    putchar('\n');
+    puts("the input double sequence");
+    for(int i = 0; i < dn; ++i)
+    {
+        printf("%g ", dseq[i]);
+    }
+    putchar('\n');
+    puts("the intput strings");
+    for(int i = 0; i < sn; ++i)
+    {
+        printf("%s ", strs[i]);
     }
     putchar('\n');
     printf("remain argc=%d\n", parser->argc);
