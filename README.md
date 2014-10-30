@@ -228,6 +228,59 @@ int main(int argc, char *argv[])
 
 本库被设计为可以扩展，目前暂时提供了int,double,c 风格字符串，int数组,通过提供适当的`OptionValue`可以支持更多的格式化数据，诸如直接将参数中的字符串格式化填写到`struct sockaddr`, glib的`GList`, 以及其他常用clib的数据结构。所有`OptionValue`将使用类似`opt_int, opt_double, opt_string`的链式构建器来创建.
 
--本库还在开发中-
 
--文档将逐步完善-
+###基本API
+####`opt_init(char* description)`初始化构造器
+- `->group(char* name)` 开始一个组
+- `->add(char const* option_name, char const* help, OptionValue* argument_value)` 第三个参数可以为NULL,标识用户自己解析, option\_name如果只有一个字符，作为短参数，option\_name使用,分割长参数与短参数,如果只有短参数,那个短参数作为实际option\_name,否则长参数作为option\_name
+- `->help(char const* help)` 生成帮助选项--help, -h
+- `->more_help(char const* option_name, char const* help, OptionValue* value_for_more_help, void (*printer)(void*), void* printer_context)`  添加一个查询子命令详细帮助的选项
+- `->parse_into_(int argc, char const* const* argv, OptionParser* pparser)`解析命令行，结果存入pparser,如果存在不符合要求的选项,不符合选项要求的参数,将自动报错退出,如果出现help与more help参数,则现实help与调用printer
+
+#### `OptionParser`
+- `int opt_has(OptionParser parser, char const* option_name)` 查询是否出现对应选项(选项如果是_required_则必定返回1)
+- `char const* opt_get_arg(OptionParser parser, char const* option_name)`查询对应选项的参数,如果选项存在但没有参数并且有默认值,则返回默认值对应的字符串
+- `opt_print(OptionParser parser), opt_fprint(FILE*, OptionParser parser)`打印完成的帮助文档
+- `opt_free(OptionParser parser)`释放内存
+
+
+#### `OptionValue`
+```c
+typedef struct option_value* OptionValue;
+typedef struct option_value_ops* OptionValueOps;
+
+struct option_value
+{
+    void* pointer;//输出变量地址，NULL不输出
+    int required;//是否必须存在
+    int has_default;//是否有默认值
+    OptionValueOps ops;//操作
+};
+struct option_value_ops
+{
+    char const* (*validate)(OptionValue self, char const* arg);//验证arg的正确性, NULL默认正确，函数返回NULL表示正确，否则返回错误信息
+    char const* (*parse)(OptionValue self, char const* arg);//解析arg,将结果放入到self->pointer,成功返回NULL,否则返回错误信息
+    char const* (*display_default)(OptionValue self);//返回默认值的字符串
+    void (*store_default)(OptionValue self);//将默认值放入到self->pointer中
+    void (*free)(OptionValue self);//释放数据结构
+};
+```
+
+####`OptionValueBuilder`
+- `opt_int(int*)`, `opt_double(double*)`, `opt_string(char const**)` 生成一个对应类型的构造器，如果提供参数，在解析命令行后会将对应的值传输到对应变量中,返回一个构造器，构造器的地址兼容OptionValue\*
+    - `->required()`标记必须需要的选项
+    - `->validator( char const* (*user_validator)(type, void*) )`注册一个用户定义的验证器，type可能为int，double,字符串没有验证器
+    - `->context(void*)` 添加上下文,会被传入到用户验证器中
+    - `->free(void (*user_free_context)(void*))`注册一个用户自定义上下文释放函数,如果注册,parser释放时会被调用
+    - `->base(int)` int拥有指定base的函数
+    - `->default_value(type)` 设置默认值
+
+- `opt_ints(int *, int* size)`,`opt_doubles(double*, int* size)`,`opt_strings(char const** , int* size)` 一个数组构造器, size必须提供,size指针的值标识数组最大值,解析后\*size会设置为真正的大小
+    - `->required()`
+    - `->validator( char const* (*user_validator(type* array, int size, void*) ))`
+    - `->context(void*)`
+    - `->free(void*)`
+    - `->default_value( type *, int )` 设置默认数组
+    - `->default_value(char const* arg, ...)` strings 使用边长参数设置默认数组, 必须NULL结尾
+    - `delimiters(char const*)` 分隔符,默认","
+opt\_strings的输出数组中字符串的什么周期与parser相同,parser释放后,访问字符串数组的行为未定义
