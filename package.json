@@ -1,0 +1,11 @@
+{
+    "name":"optparser",
+    "version":"0.0.1",
+    "repo":"syhkiller/optparser",
+    "description":"a friendly command line arguments parser like python argparse or boost program options",
+    "keywords":["option", "command line", "argument", "getopt"],
+    "src":[
+        "optvalue.c" ,
+        "optparser.c"
+        ]
+}
