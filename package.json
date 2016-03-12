@@ -1,6 +1,6 @@
 {
     "name":"optparser",
-    "repo":"syhkiller/optparser",
+    "repo":"johan-sun/optparser",
     "description":"A friendly command line arguments parser like python argparse or boost program options",
     "keywords":["option", "command line", "argument", "getopt"],
     "src":[
