@@ -1,0 +1,19 @@
+project(optparser)
+
+set(SOURCE_OPTPARSER 
+    "optparser.c"
+    "optvalues.c"
+)
+set(HEADER "optparser.h")
+option(build_static_library "will build static lib not or will" ON)
+
+if(${build_static_library})
+    add_library(optparser STATIC ${SOURCE_OPTPARSER})
+else()
+    add_library(optparser SHARED ${SOURCE_OPTPARSER})
+endif()
+
+install(TARGETS optparser
+    LIBRARY DESTINATION lib)
+install (FILES ${HEADER}
+    DESTINATION include)
